@@ -1,0 +1,9 @@
+{
+  "names": {},
+  "order": [],
+  "fallback": {
+    "none": "Без папки",
+    "cache": "ssh config"
+  },
+  "collapsedByDefault": []
+}

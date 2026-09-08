@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy-ssh-connections",
+  "name": "SSH Connections",
+  "version": "0.1.0",
+  "author": "Aleksey Abaydulin",
+  "license": "MIT",
+  "description": "SSH-подключения из tabby: папки, поиск, открытие в новом терминале. Показываются только записи с ключом на диске.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "SSH",
+    "description": "SSH-подключения (tabby): открыть в терминале, копировать команду",
+    "category": "Utilities",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
