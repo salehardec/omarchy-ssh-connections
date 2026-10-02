@@ -340,13 +340,17 @@ Panel {
   Process { id: copyProc }
 
   // ---------- кнопка в баре ----------
-  implicitWidth: pill.implicitWidth
-  implicitHeight: pill.implicitHeight
+  // Горизонтальные поля дают зазор между пилюлями, высота — как у штатных
+  // виджетов бара (barSize), чтобы все чипы были одной высоты.
+  readonly property real pillMargin: Style.space(3)
+
+  implicitWidth: pill.implicitWidth + pillMargin * 2
+  implicitHeight: root.barSize || Style.space(26)
 
   Item {
     id: pill
-    implicitWidth: pillContent.implicitWidth + Style.space(20)
-    implicitHeight: Math.max(Style.space(24), pillContent.implicitHeight + Style.space(10))
+    implicitWidth: pillContent.implicitWidth + Style.space(18)
+    implicitHeight: Math.max(Style.space(20), (root.barSize || Style.space(26)) - Style.space(6))
     anchors.centerIn: parent
 
     Rectangle {
