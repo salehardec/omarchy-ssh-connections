@@ -116,16 +116,30 @@ Panel {
     }
     return out
   }
+  property string probeRequested: ""
   function scheduleProbe() {
     var keys = root.unixCandidateKeys()
     if (keys.length === 0) { root.existsMap = {}; root.recompute(); return }
     var cmd = ["bash", "-c", root.probeScript(), "probe"].concat(keys)
-    if (JSON.stringify(cmd) !== JSON.stringify(keyProbe.command)) keyProbe.command = cmd
-    if (!keyProbe.running) keyProbe.running = true
+    var enc = JSON.stringify(cmd)
+    if (enc !== root.probeRequested) {
+      root.probeRequested = enc
+      keyProbe.command = cmd
+      // Проба живёт миллисекунды, но если набор ключей сменился, пока она идёт,
+      // Process.running = true молча ничего не сделает — поэтому перезапускаем
+      // по завершении текущей, а не теряем новый набор.
+      if (keyProbe.running) keyProbe.restartPending = true
+      else keyProbe.running = true
+    }
+    // Даже если набор ключей тот же, store/правки могли измениться — модель
+    // зависит и от них.
+    root.recompute()
   }
 
   Process {
     id: keyProbe
+    property bool restartPending: false
+    onExited: if (restartPending) { restartPending = false; running = true }
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.applyProbe(String(text || ""))
@@ -179,14 +193,25 @@ Panel {
     onTriggered: root.persistOverrides()
   }
   function scheduleSave() { saveTimer.restart() }
+  property string saveRequested: ""
   function persistOverrides() {
     var json = JSON.stringify(root.overrides, null, 1)
     var path = root.pluginDir + "/overrides.json"
     var cmd = ["bash", "-c", "printf '%s' \"$1\" > \"$2.tmp\" && mv \"$2.tmp\" \"$2\"", "sshconn-overrides", json, path]
-    if (JSON.stringify(cmd) !== JSON.stringify(saveProc.command)) saveProc.command = cmd
-    if (!saveProc.running) saveProc.running = true
+    var enc = JSON.stringify(cmd)
+    if (enc === root.saveRequested) return
+    root.saveRequested = enc
+    saveProc.command = cmd
+    // Как и у keyProbe: повторный запуск во время работы был бы no-op и
+    // потерял бы правку; очередь из одного отложенного запуска решает это.
+    if (saveProc.running) saveProc.restartPending = true
+    else saveProc.running = true
   }
-  Process { id: saveProc }
+  Process {
+    id: saveProc
+    property bool restartPending: false
+    onExited: if (restartPending) { restartPending = false; running = true }
+  }
 
   // ---- действия: удаление / редактирование ----
   function requestDelete(view) {
@@ -317,14 +342,18 @@ Panel {
     return parts.join(" ")
   }
   function openConn(view) {
-    var argv = ["omarchy-launch-terminal", "-e"].concat(view.command)
-    openProc.command = argv
-    openProc.running = true
+    // Fire-and-forget: Quickshell.execDetached не следит за процессом. Раньше
+    // здесь был Process с running = true, но это no-op для уже запущенного
+    // процесса, а omarchy-launch-terminal (exec setsid uwsm-app --
+    // xdg-terminal-exec) живёт столько же, сколько окно терминала. Поэтому
+    // второй запуск молча терялся, пока openproc оставался running.
+    // Скрипт-обёртка запускает НОВОЕ окно, помеченное именем соединения.
+    var name = String(view.name || view.host || "SSH")
+    Quickshell.execDetached(["bash", root.pluginDir + "/launch-ssh-terminal.sh", name].concat(view.command))
     root.close()
   }
   function copyConn(view) {
-    copyProc.command = ["bash", "-c", "printf '%s' \"$1\" | wl-copy", "sshconn-copy", root.commandText(view)]
-    copyProc.running = true
+    Quickshell.execDetached(["bash", "-c", "printf '%s' \"$1\" | wl-copy", "sshconn-copy", root.commandText(view)])
     root.copiedName = String(view.name || view.host || "")
     copyTimer.restart()
   }
@@ -335,9 +364,6 @@ Panel {
     interval: 1500
     onTriggered: root.copiedName = ""
   }
-
-  Process { id: openProc }
-  Process { id: copyProc }
 
   // ---------- кнопка в баре ----------
   // Горизонтальные поля дают зазор между пилюлями, высота — как у штатных

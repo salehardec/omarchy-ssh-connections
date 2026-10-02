@@ -14,6 +14,7 @@ mkdir -p "$DST"
 for f in manifest.json Panel.qml Connections.js LICENSE README.md; do
   [ -f "$SRC/$f" ] && install -m 644 "$SRC/$f" "$DST/$f"
 done
+[ -f "$SRC/launch-ssh-terminal.sh" ] && install -m 755 "$SRC/launch-ssh-terminal.sh" "$DST/launch-ssh-terminal.sh"
 [ -f "$SRC/folderNames.json" ] && [ ! -f "$DST/folderNames.json" ] \
   && install -m 644 "$SRC/folderNames.json" "$DST/folderNames.json"
 
